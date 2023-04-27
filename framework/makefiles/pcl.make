@@ -18,8 +18,8 @@ ANDROID_PCL_DIR=${ANDROID_DEPS_DIR}/pcl/share/pcl-1.8
 ${REPOS_DIR}/pcl :
 	mkdir ${REPOS_DIR} -p
 	rm ${REPOS_DIR}/pcl -rf
-	git clone "https://github.com/JFerrerBeired/pcl" ${REPOS_DIR}/pcl
-	cd $@ && git checkout starfive
+	git clone "https://github.com/PointCloudLibrary/pcl.git" ${REPOS_DIR}/pcl
+	cd $@ && git checkout 6fb1b65d3099a915255b070269b1ac78ed384921
 # BUILD #
 ${DEPS_DIR}/pcl : ${REPOS_DIR}/pcl eigen3 flann
 	if [ ! -e $(EIGEN3_INCLUDE_DIR) ] ; \

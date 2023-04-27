@@ -6,9 +6,9 @@ ${REPOS_DIR}/opencv :
 	mkdir ${REPOS_DIR} -p
 	rm ${REPOS_DIR}/opencv -rf
 	git clone "https://github.com/opencv/opencv.git" ${REPOS_DIR}/opencv
-	git clone "https://github.com/JFerrerBeired/opencv_contrib" ${REPOS_DIR}/opencv_contrib
+	git clone "https://github.com/opencv/opencv_contrib.git" ${REPOS_DIR}/opencv_contrib
 	cd ${REPOS_DIR}/opencv && git checkout 3.4.3
-	cd ${REPOS_DIR}/opencv_contrib && git checkout starfive
+	cd ${REPOS_DIR}/opencv_contrib && git checkout 3.4.3
 
 # TODO: update opencv flags for opencv 3
 ${DEPS_DIR}/opencv : ${REPOS_DIR}/opencv
