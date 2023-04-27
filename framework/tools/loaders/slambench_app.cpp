@@ -16,6 +16,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <chrono>
+
 std::string default_output_filename;
 std::string output_filename;
 bool use_gui, default_use_gui = false;
@@ -74,6 +76,9 @@ void run_pangolin(bool *stay_on, SLAMBenchConfiguration *config) {
 
 int main(int argc, char * argv[])
 {
+    auto t = std::chrono::high_resolution_clock::now();
+    std::cout << "START\t" << std::chrono::duration_cast<std::chrono::nanoseconds>(t.time_since_epoch()).count() << std::endl;
+    
     try {
         auto config = new SLAMBenchConfiguration();
 
@@ -147,5 +152,9 @@ int main(int argc, char * argv[])
         std::cout << e.what() << std::endl;
 
     }
+
+    t = std::chrono::high_resolution_clock::now();
+    std::cout << "REAL_END\t" << std::chrono::duration_cast<std::chrono::nanoseconds>(t.time_since_epoch()).count() << std::endl;
+
     return 0;
 }
