@@ -17,7 +17,7 @@ SET(CMAKE_BUILD_DIRECTORY          ${PROJECT_BINARY_DIR}/builddir)
 # Most common compiler flags
 #######################################################
 
-set(GENERAL_COMPILATION_FLAGS "-g -O3 -Wall  -Wextra")
+set(GENERAL_COMPILATION_FLAGS "-g -O3 -Wall  -Wextra -fno-omit-frame-pointer")
 
 if(CMAKE_COMPILER_IS_GNUCC)
     add_definitions(-D_FILE_OFFSET_BITS=64) ## Workaround for 32 bit boards with fwrite 2G limit
