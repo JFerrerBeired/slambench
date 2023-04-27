@@ -14,6 +14,8 @@ if [ ! -d $NAME_DESTINY ]; then
 fi
 
 for library_file in $NAME_DESTINY/*; do
-    ln -s $library_file $(basename $library_file)
+    lib_name=$(basename $library_file)
+    rm -f $lib_name
+    ln -s $library_file $lib_name
 done
 
