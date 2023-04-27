@@ -46,10 +46,9 @@ run_prepare () {
     for i in "${datasets[@]}"
     do
     dataset_name=`basename -s .slam ${i}`
-    mkdir -p ${LOG_DIRECTORY}/rgbd_multi/$dataset_name
-    mkdir -p ${LOG_DIRECTORY}/mono_multi/$dataset_name
-    mkdir -p ${LOG_DIRECTORY}/rgbd_single/$dataset_name
-    mkdir -p ${LOG_DIRECTORY}/mono_single/$dataset_name
+    #mkdir -p ${LOG_DIRECTORY}/rgbd_multi/$dataset_name
+    mkdir -p ${LOG_DIRECTORY}/orbslam2
+    mkdir -p ${LOG_DIRECTORY}/orbslam3
 	make $i
     done
 }
@@ -63,10 +62,13 @@ run_bench () {
         
         if [ ! -f ${dataset}    ]; then continue          ; fi
 
-        ./build/bin/slambench  -i ${dataset}  -load  build/lib/liborbslam2-original-library.so ${DEBUG_ARGUMENTS} -m rgbd >> ${LOG_DIRECTORY}/rgbd_multi/$dataset_name/orbslam2_${current_time}.log  || exit 1
-        ./build/bin/slambench  -i ${dataset}  -load  build/lib/liborbslam2-original-library.so ${DEBUG_ARGUMENTS} -m mono >> ${LOG_DIRECTORY}/mono_multi/$dataset_name/orbslam2_${current_time}.log  || exit 1
-        taskset 1 ./build/bin/slambench  -i ${dataset}  -load  build/lib/liborbslam2-original-library.so ${DEBUG_ARGUMENTS} -m rgbd >> ${LOG_DIRECTORY}/rgbd_single/$dataset_name/orbslam2_${current_time}.log  || exit 1
-        taskset 1 ./build/bin/slambench  -i ${dataset}  -load  build/lib/liborbslam2-original-library.so ${DEBUG_ARGUMENTS} -m mono >> ${LOG_DIRECTORY}/mono_single/$dataset_name/orbslam2_${current_time}.log  || exit 1
+        ./build/bin/slambench  -i ${dataset}  -load  build/lib/liborbslam2-original-library.so ${DEBUG_ARGUMENTS} >> ${LOG_DIRECTORY}/orbslam2/orbslam2_${current_time}.log  || exit 1
+        ./build/bin/slambench  -i ${dataset}  -load  build/lib/libORB_SLAM3-original-library.so ${DEBUG_ARGUMENTS} >> ${LOG_DIRECTORY}/orbslam3/orbslam3_${current_time}.log  || exit 1
+
+        #./build/bin/slambench  -i ${dataset}  -load  build/lib/liborbslam2-original-library.so ${DEBUG_ARGUMENTS} -m rgbd >> ${LOG_DIRECTORY}/rgbd_multi/$dataset_name/orbslam2_${current_time}.log  || exit 1
+        #./build/bin/slambench  -i ${dataset}  -load  build/lib/liborbslam2-original-library.so ${DEBUG_ARGUMENTS} -m mono >> ${LOG_DIRECTORY}/mono_multi/$dataset_name/orbslam2_${current_time}.log  || exit 1
+        #taskset 1 ./build/bin/slambench  -i ${dataset}  -load  build/lib/liborbslam2-original-library.so ${DEBUG_ARGUMENTS} -m rgbd >> ${LOG_DIRECTORY}/rgbd_single/$dataset_name/orbslam2_${current_time}.log  || exit 1
+        #taskset 1 ./build/bin/slambench  -i ${dataset}  -load  build/lib/liborbslam2-original-library.so ${DEBUG_ARGUMENTS} -m mono >> ${LOG_DIRECTORY}/mono_single/$dataset_name/orbslam2_${current_time}.log  || exit 1
     done
 }
 
