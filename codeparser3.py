@@ -159,8 +159,7 @@ add_occurrences(dat, dir2, validate=True)
 for var in dat:
     modify_files(var, "comment")
     res = subprocess.run("make -j slambench APPS=orbslam2", shell=True)
-    res = subprocess.run(f"./backup_library.sh liborbslam2 mutex_experiments/{var['classname']}_{var['varname']}", shell=True)
-    res = subprocess.run("make slambench APPS=orbslam2", shell=True)
+    res = subprocess.run(f"./backup_library.sh liborbslam2 mutex_experiments2/{var['classname']}_{var['varname']}", shell=True)
     modify_files(var, "uncomment")
 
 
