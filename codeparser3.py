@@ -6,7 +6,7 @@ from itertools import compress
 
 
 dir2 = "/home/jferrer/slambench/benchmarks/orbslam2/src/original"
-dir3 = "/home/jorge/slambench/benchmarks/orbslam3/src/original"
+dir3 = "/home/jferrer/slambench/benchmarks/orbslam3/src/original"
 
 
 def find_declarations(dir, casual=False):
@@ -153,14 +153,62 @@ def classify_vars(data):
                 print("\t", key)
 
 
-dat = find_declarations(dir2)
-add_occurrences(dat, dir2, validate=True)
+def validate_limit_dict(data, limit_dict):
+    """Validate if all the entries of limit_dict are correct"""
+    success = True
+    classnames = [d["classname"] for d in data]
+    
+    for l in limit_dict:
+        classname = l["classname"]
+        varname = l["varname"]
+        if not classname in classnames:
+            success = False
+            print(f"ERROR in limit_dict: class {classname} does not exist.")
+            continue
+        
+        if varname == True:
+            continue
+        
+        varnames = [d["varname"] for d in data if d["classname"] == classname]
+        
+        if not varname in varnames:
+            success = False
+            print(f"ERROR in limit_dict: {varname} of class {classname} does not exist.")
+            continue
+    
+    return success
+            
+
+
+dat = find_declarations(dir3)
+add_occurrences(dat, dir3, validate=True)
+
+#Limit to these mutexs in the format {"class":"class_name", "mutex":"mutex_name"} mutex_name=True for all mutex of the class
+limit_dict = (
+    {"classname":"LocalMapping", "varname":True},
+    {"classname":"MapPoint", "varname":"mGlobalMutex"}
+)
+
+if not validate_limit_dict(dat, limit_dict):
+    exit() #limit_dict incorrect
+
+if len(limit_dict):
+    new_dat = []
+    for l in limit_dict:
+        for var in dat:
+            if var["classname"] == l["classname"] and (var["varname"] == l["varname"] or l["varname"] == True):
+                new_dat.append(var)
+    
+    dat = new_dat
+
 
 for var in dat:
+    print(f"COMPILING WITHOUT {var['classname']}_{var['varname']}")
     modify_files(var, "comment")
-    res = subprocess.run("make -j slambench APPS=orbslam2", shell=True)
-    res = subprocess.run(f"./backup_library.sh liborbslam2 mutex_experiments2/{var['classname']}_{var['varname']}", shell=True)
+    res = subprocess.run("make -j slambench APPS=orbslam3", shell=True)
+    res = subprocess.run(f"./backup_library.sh liborbslam3 mutex_experiments3/{var['classname']}_{var['varname']}", shell=True)
     modify_files(var, "uncomment")
+    print(f"COMPILILATION WITHOUT {var['classname']}_{var['varname']} ENDED")
 
 
 
