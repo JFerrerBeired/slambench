@@ -40,21 +40,42 @@ def find_declarations(dir, casual=False):
 
 def add_occurrences(data, dir, validate=False):
     """Add to the data dictionary a new entry with all the occurences of said variable"""
-    def check_scope(var, lock):
+    def check_scope(var, lock, unique_mutexs):
         """Checks if the mutex of the lock falls in the scope of var.
         This happens when the file is the same (same class) or if referenced
-        from another file. 
+        from another file.
         This is necessary because some mutex have the same
         name even though they are from different classes."""
+        
+        
+        
         lock_classname, lock_extension = os.path.basename(lock["filepath"]).split('.')
         if lock["mutexname"] == var["varname"] and lock_classname == var["classname"]:
             return True
-        else: #It might still be a reference to the correct mutex. The reference can be object_name-> or class_name:: In my cases, all the object names have the format [something]class_name
+        else: #It might still be a reference to the correct mutex. The reference can be object_name-> or class_name:: In my cases (ORBSLAM3), all the object names have the format [something]class_name
             s = re.search(f".*{ var['classname'] }.{{2}}{ var['varname'] }", lock["mutexname"])
             if s:
                 return True
+            
+            #Search the unique mutexs names at the end of the lock name [whatever_syntax]mutexname
+            #If it is unique, we know that it certanly belongs to its class.
+            for um_mutexname, um_classname in unique_mutexs.items():
+                if var["classname"] != um_classname:
+                    continue
+                
+                s = re.search(f".*{um_mutexname}", lock["mutexname"])
+                if s:
+                    print(f"Unique mutex: {lock['mutexname']}")
+                    return True
+                         
             return False
-        
+    
+    #Get unique mutexs (meaning mutex that have a name that is unique and is not repeated in other class)
+    #This can be used to unambiguously identify a variable without having to do gramar check
+    varnames = [d['varname'] for d in data]
+    classnames = [d['classname'] for d in data]
+    unique_mutexs = {varname:classname for varname, classname in zip(varnames, classnames) if varnames.count(varname) == 1}
+    
     cmd = f"grep -rnw -E 'unique_lock' {dir}/src {dir}/include"
     res = subprocess.run(cmd, stdout=subprocess.PIPE, shell=True)
     output = res.stdout.decode('utf-8')
@@ -62,7 +83,7 @@ def add_occurrences(data, dir, validate=False):
     for var in data:
         locks = re.findall(f"(.+):(\d+):.*\((.*{ var['varname'] })\);", output)
         locks = [dict(zip(("filepath", "linenumber", "mutexname"), lock)) for lock in locks]
-        indices = [check_scope(var, lock) for lock in locks]
+        indices = [check_scope(var, lock, unique_mutexs) for lock in locks]
         
         locks = list(compress(locks, indices)) #Select locks that are within the scope
         var["occurences"] = locks
@@ -183,9 +204,13 @@ def validate_limit_dict(data, limit_dict):
 dat = find_declarations(dir3)
 add_occurrences(dat, dir3, validate=True)
 
+"""
 #Limit to these mutexs in the format {"class":"class_name", "mutex":"mutex_name"} mutex_name=True for all mutex of the class
 limit_dict = (
-    {"classname":"LocalMapping", "varname":True},
+    {"classname":"LocalMapping", "varname":"mMutexReset"},
+    {"classname":"LocalMapping", "varname":"mMutexStop"},
+    {"classname":"LocalMapping", "varname":"mMutexFinish"},
+    {"classname":"Map", "varname":"mMutexMapUpdate"},
     {"classname":"MapPoint", "varname":"mGlobalMutex"}
 )
 
@@ -208,7 +233,7 @@ for var in dat:
     res = subprocess.run("make -j slambench APPS=orbslam3", shell=True)
     res = subprocess.run(f"./backup_library.sh liborbslam3 mutex_experiments3/{var['classname']}_{var['varname']}", shell=True)
     modify_files(var, "uncomment")
-    print(f"COMPILILATION WITHOUT {var['classname']}_{var['varname']} ENDED")
+    print(f"COMPILATION WITHOUT {var['classname']}_{var['varname']} ENDED")"""
 
 
 
