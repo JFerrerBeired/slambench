@@ -8,6 +8,8 @@ from itertools import compress
 dir2 = "/home/jferrer/slambench/benchmarks/orbslam2/src/original"
 dir3 = "/home/jferrer/slambench/benchmarks/orbslam3/src/original"
 
+dir_file_special_cases = "/home/jferrer/slambench/codeparser_special_cases.txt"
+
 
 def find_declarations(dir, casual=False):
     data_type = "mutex"
@@ -17,7 +19,6 @@ def find_declarations(dir, casual=False):
     
     casual_data = defaultdict(lambda:[])
     pro_data = list()
-
     
     for entry in output:
         if not entry: #empty line
@@ -38,7 +39,7 @@ def find_declarations(dir, casual=False):
     return casual_data if casual else pro_data
 
 
-def add_occurrences(data, dir, validate=False):
+def add_occurrences(data, dir):
     """Add to the data dictionary a new entry with all the occurences of said variable"""
     def check_scope(var, lock, unique_mutexs):
         """Checks if the mutex of the lock falls in the scope of var.
@@ -46,8 +47,6 @@ def add_occurrences(data, dir, validate=False):
         from another file.
         This is necessary because some mutex have the same
         name even though they are from different classes."""
-        
-        
         
         lock_classname, lock_extension = os.path.basename(lock["filepath"]).split('.')
         if lock["mutexname"] == var["varname"] and lock_classname == var["classname"]:
@@ -65,10 +64,22 @@ def add_occurrences(data, dir, validate=False):
                 
                 s = re.search(f".*{um_mutexname}", lock["mutexname"])
                 if s:
-                    print(f"Unique mutex: {lock['mutexname']}")
                     return True
-                         
-            return False
+        
+        if special_file_exists:
+            for special_lock, special_input in special_locks:
+                if special_lock == lock['full_match']:
+                    if special_input == 'ignore':
+                        return False
+                    special_input = special_input.split()
+                    special_class, *special_mutex = special_input #special_mutex will be empty list when no argument provided.
+                    assert(len(special_mutex) < 2) # Only two words per line (class, [mutex_name])
+                    
+                    if special_class == var["classname"] and (not len(special_mutex) or special_mutex[0] == var["varname"]):
+                        if len(special_mutex):
+                            print(special_mutex[0] == var["varname"])
+                        return True
+        return False 
     
     #Get unique mutexs (meaning mutex that have a name that is unique and is not repeated in other class)
     #This can be used to unambiguously identify a variable without having to do gramar check
@@ -76,45 +87,67 @@ def add_occurrences(data, dir, validate=False):
     classnames = [d['classname'] for d in data]
     unique_mutexs = {varname:classname for varname, classname in zip(varnames, classnames) if varnames.count(varname) == 1}
     
+    #Look for special cases file
+    try:
+        with open(dir_file_special_cases, 'r') as f:
+            lines = f.readlines()
+            special_locks = [(lines[i].strip(), lines[i+1].strip()) for i in range(3, len(lines), 2)] #Group lines by pairs and ignore the first three header lines
+        special_file_exists = True
+    except FileNotFoundError:
+        special_file_exists = False
+        special_locks = []
+        f = open(dir_file_special_cases, 'w')
+        print(f"This file keep track of all the locks that couldn't be matched by the common rules.\nIt contains data in the form of pairs of lines. Complete the second line with the classname that corresponds to the mutex locked or the keyword 'ignore'. Add a second word to rename the mutex to the correct name in case of conflict.\n", 
+              file = f)
+    
     cmd = f"grep -rnw -E 'unique_lock' {dir}/src {dir}/include"
     res = subprocess.run(cmd, stdout=subprocess.PIPE, shell=True)
     output = res.stdout.decode('utf-8')
 
     for var in data:
-        locks = re.findall(f"(.+):(\d+):.*\((.*{ var['varname'] })\);", output)
-        locks = [dict(zip(("filepath", "linenumber", "mutexname"), lock)) for lock in locks]
+        locks = re.finditer(f"(.+):(\d+):.*\((.*{ var['varname'] }).*\);", output)
+
+        locks = [dict(zip(("filepath", "linenumber", "mutexname", "full_match"), lock.groups() + (lock.group(),))) for lock in locks]
         indices = [check_scope(var, lock, unique_mutexs) for lock in locks]
         
-        locks = list(compress(locks, indices)) #Select locks that are within the scope
-        var["occurences"] = locks
-
+        locks_scope = list(compress(locks, indices)) #Select locks that are within the scope
+        var["occurences"] = locks_scope
     
-    if validate:
-        validated = True
-        locks = output.split('\n')[:-1]
-        counts = [-1] * len(locks) #Ideally all entries are count once, so this should all be 0 at the end
-        
-        for var in data:
-            for occ in var["occurences"]:
-                pattern = f"{occ['filepath']}:{occ['linenumber']}:.*"
-                idx = [i for i, x in enumerate(locks) if re.match(pattern, x)]
-                
-                #This should never happen
-                if len(idx)>1:
-                    print('ERROR: lock found twice???')
-                    validated = False
-                if not len(idx):
-                    print('ERROR: lock NOT found????')
-                    validated = False
-        
-                counts[idx[0]] += 1
-        
-        for i, c in enumerate(counts):
-            if c:
-                validated = False
-                print(f"lock {i} counted {c+1} times. >:(\n\t{locks[i]}")
-        
-        print(f"\nValidation {'NOT ' if not validated else ''}OK!")
+    locks = output.split('\n')[:-1]
+    counts = [-1] * len(locks) #Ideally all entries are count once, so this should all be 0 at the end
+    
+    #This checks the locks that have been registered as occurences of a mutex. Does a validation check and counts them.
+    for var in data:
+        for occ in var["occurences"]:
+            if var['varname'] == 'mMutexMapUpdate':
+                print('e')
+            idx = [i for i, x in enumerate(locks) if occ["full_match"] in x] # the lock from the output (x) can have text (comment) after the ;
+            
+            #This should never happen
+            if len(idx)>1:
+                print('FATAL ERROR: lock found twice???\n\t', occ['full_match'])
+            if not len(idx):
+                print('FATAL ERROR: lock NOT found????\n\t', occ['full_match'])
+
+            counts[idx[0]] += 1
+
+    error_locks = False
+    for i, c in enumerate(counts):
+        if c: #Lock not found
+            if not special_file_exists: #Create the file
+                print(locks[i], "\n", file=f)
+            else: #It should have been found in the special case file
+                print(f"Lock {locks[i]} not matched to any mutex. Check the special cases file.")
+                error_locks = True
+    
+    if error_locks:
+        print("If you have changed your working directory, you might want to delete the file to regenerate it.\nAborting...")
+        exit()
+    
+    if not special_file_exists:
+        print(F"SPECIAL FILE GENERATED AT '{dir_file_special_cases}'.\nPLEASE FILL THE CLASS NAMES AND RUN AGAIN.")
+        exit()
+
 
 
 def modify_files(variable, mode):
@@ -202,7 +235,8 @@ def validate_limit_dict(data, limit_dict):
 
 
 dat = find_declarations(dir3)
-add_occurrences(dat, dir3, validate=True)
+add_occurrences(dat, dir3)
+
 
 """
 #Limit to these mutexs in the format {"class":"class_name", "mutex":"mutex_name"} mutex_name=True for all mutex of the class
